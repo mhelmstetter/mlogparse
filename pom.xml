@@ -29,11 +29,11 @@
 						</goals>
 						<configuration>
 							<outputDirectory>${basedir}/bin</outputDirectory>
-							<finalName>OplogAnalyzer</finalName>
+							<finalName>mlogparse</finalName>
 							<transformers>
 								<transformer
 									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>org.mongodb.oploganalyzer.OplogAnalyzer</mainClass>
+									<mainClass>org.mongodb.mlogparse.LogParserApp</mainClass>
 								</transformer>
 							</transformers>
 							<createDependencyReducedPom>false</createDependencyReducedPom>
