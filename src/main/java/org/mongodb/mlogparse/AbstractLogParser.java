@@ -2,7 +2,6 @@ package org.mongodb.mlogparse;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 
 import org.json.simple.parser.JSONParser;
@@ -14,9 +13,8 @@ public abstract class AbstractLogParser implements LogParser {
 
     protected static final Logger logger = LoggerFactory.getLogger(LogParserApp.class);
     protected String currentLine = null;
-    protected String fileName;
-    protected String dirName;
-    protected File file;
+    protected String[] fileNames;
+    //protected File file;
     
     public static final String FIND = "find";
     public static final String FIND_AND_MODIFY = "findAndModify";
@@ -33,25 +31,18 @@ public abstract class AbstractLogParser implements LogParser {
     
     
     public void read()  throws IOException, ParseException {
-        if (fileName != null) {
-            file = new File(fileName);
-            readFile();
-        } else if (dirName != null) {
-            File dir = new File(dirName);
-            File[] files = dir.listFiles(new FilenameFilter() {
-                public boolean accept(File dir, String name) {
-                    return name.toLowerCase().contains(".log");
-                }
-            });
-            for (File f : files) {
-                file = f;
-                System.out.println("Reading " + file);
-                readFile();
-            }
+//        if (fileName != null) {
+//            file = new File(fileName);
+//            readFile();
+//        }
+        
+        for (String fileName : fileNames) {
+            File f = new File(fileName);
+            read(f);
         }
     }
     
-    public abstract void readFile() throws IOException, ParseException;
+ 
 
 
     protected Object parseJson(BufferedReader in) throws ParseException, IOException {
@@ -101,20 +92,12 @@ public abstract class AbstractLogParser implements LogParser {
         accumulator = new Accumulator();
     }
 
-    public String getFileName() {
-        return fileName;
+    public String[] getFileNames() {
+        return fileNames;
     }
 
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
-    }
-
-    public String getDirName() {
-        return dirName;
-    }
-
-    public void setDirName(String dirName) {
-        this.dirName = dirName;
+    public void setFileNames(String[] fileNames) {
+        this.fileNames = fileNames;
     }
 
 }

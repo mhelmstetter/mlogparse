@@ -6,7 +6,6 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
@@ -20,11 +19,9 @@ public class LogParserApp {
         Options options = new Options();
         options.addOption(new Option("help", "print this message"));
         options.addOption(
-                OptionBuilder.withArgName("mongod log file").hasArgs().withLongOpt("file").create("f"));
+                OptionBuilder.withArgName("mongod log file(s)").hasArgs().withLongOpt("files").create("f"));
         options.addOption(
-                OptionBuilder.withArgName("mongod log directory").hasArgs().withLongOpt("directory").create("d"));
-        options.addOption(
-                OptionBuilder.withArgName("MongoDB version").hasArgs().withLongOpt("mongoVersion").create("m"));
+                OptionBuilder.withArgName("MongoDB version - optional, default 3.x").hasArgs().withLongOpt("mongoVersion").create("m"));
     
         CommandLineParser parser = new GnuParser();
         CommandLine line = null;
@@ -33,12 +30,20 @@ public class LogParserApp {
             if (line.hasOption("help")) {
                 printHelpAndExit(options);
             }
-        } catch (MissingOptionException e) {
+        } catch (org.apache.commons.cli.ParseException e) {
+            System.out.println(e.getMessage());
             printHelpAndExit(options);
         } catch (Exception e) {
             e.printStackTrace();
             printHelpAndExit(options);
         }
+        
+        String[] fileNames = line.getOptionValues("f");
+        
+        if (fileNames == null) {
+            printHelpAndExit(options);
+        }
+        
         return line;
     }
     
@@ -67,10 +72,9 @@ public class LogParserApp {
         }
         
         
-        String fileName = line.getOptionValue("f");
-        String dirName = line.getOptionValue("d");
-        parser.setFileName(fileName);
-        parser.setDirName(dirName);
+        String[] fileNames = line.getOptionValues("f");
+        
+        parser.setFileNames(fileNames);
         
         parser.read();
         parser.report();

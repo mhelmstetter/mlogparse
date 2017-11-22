@@ -1,6 +1,7 @@
 package org.mongodb.mlogparse;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.regex.Matcher;
@@ -39,7 +40,7 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
         super();
     }
 
-    public void readFile() throws IOException, ParseException {
+    public void read(File file) throws IOException, ParseException {
         BufferedReader in = new BufferedReader(new FileReader(file));
         JSONParser parser = new JSONParser();
         
@@ -134,11 +135,15 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
                         accumulator.accumulate(file, GETMORE, namespace, execTime, keysExamined, docsExamined, null);
                         continue;
                     }
+                    if (currentLine.contains("Use of the aggregate command without the")) {
+                        continue;
+                    }
                     
                     if (!currentLine.endsWith("ms")) {
                         lineBuffer = new StringBuilder(currentLine.trim());
                         continue;
                     }
+                    
                     System.out.println(currentLine);
                     unmatchedCount++;
 
@@ -179,6 +184,7 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
                         lineBuffer = new StringBuilder(currentLine.trim());
                         continue;
                     }
+                   
                     System.out.println(currentLine);
                     unmatchedCount++;
                 }
