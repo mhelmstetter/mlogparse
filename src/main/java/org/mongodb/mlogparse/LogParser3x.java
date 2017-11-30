@@ -2,33 +2,32 @@ package org.mongodb.mlogparse;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.lang3.StringUtils;
-import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.mongodb.util.MimeTypes;
 
 public class LogParser3x extends AbstractLogParser implements LogParser {
 
     Pattern collectionListDbNamePattern = Pattern.compile("^.*'(.*)'");
     
+    Pattern insertPattern = Pattern.compile("^.+ [A-Z] COMMAND .* command (\\S++).*command: insert \\{.*\\} .* (\\d+)ms$");
     
-//    Pattern findPattern = Pattern
-//            .compile("^.* [A-Z] COMMAND .* command (\\S*).*command: find (.*) planSummary: (.*) (\\d+)ms");
-//    
-//    Pattern findAndModifyPattern = Pattern
-//            .compile("^.* [A-Z] COMMAND .* command (\\S*).*command: findAndModify (\\{.*\\}) planSummary: (.*) (\\d+)ms");
+    Pattern commandPattern = Pattern.compile("^.+ [A-Z] COMMAND .+ command (\\S++).*command: (\\S++) \\{ \\S*: (.*) (\\d+)ms$");
     
-    Pattern insertPattern = Pattern.compile("^.{28} [A-Z] COMMAND .* command (\\S++).*command: insert \\{.*\\} .* (\\d+)ms$");
+    Pattern getmorePattern = Pattern.compile("^.+ [A-Z] COMMAND .+ getmore (\\S++).+query: \\{ \\S*:.+keysExamined:(\\d+) docsExamined:(\\d+) .+ (\\d+)ms$");
     
-    Pattern commandPattern = Pattern.compile("^.{28} [A-Z] COMMAND .+ command (\\S++).*command: (\\S++) \\{ \\S*: (.*) (\\d+)ms$");
+    Pattern queryPattern = Pattern.compile("^.+ [A-Z] COMMAND .+ query (\\S++).+query: \\{ \\S*:.+keysExamined:(\\d+) docsExamined:(\\d+) .+ (\\d+)ms$");
     
-    Pattern getmorePattern = Pattern.compile("^.{28} [A-Z] COMMAND .+ getmore (\\S++).+query: \\{ \\S*:.+keysExamined:(\\d+) docsExamined:(\\d+) .+ (\\d+)ms$");
-        
-    Pattern writePattern = Pattern.compile("^.{28} [A-Z] WRITE .+ (update|remove) (\\S++).+query: (\\{.*?\\}+)\\s*(.+) (\\d+)ms$");
+    
+    Pattern writePattern = Pattern.compile("^.+ [A-Z] WRITE .+ (update|remove) (\\S++).+query: (\\{.*?\\}+)\\s*(.+) (\\d+)ms$");
     
     Pattern updatePlanInfoPattern = Pattern.compile(".*keysExamined:(\\d+) docsExamined:(\\d+).*");
     Pattern jsonPattern = Pattern.compile(".+keysExamined:(\\d+) docsExamined:(\\d+)\\s*(?:\\w+:\\d+ )*?\\s*(?:nreturned:)?(\\d+)? .+");
@@ -41,11 +40,28 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
     }
 
     public void read(File file) throws IOException, ParseException {
-        BufferedReader in = new BufferedReader(new FileReader(file));
-        JSONParser parser = new JSONParser();
+        
+        String guess = MimeTypes.guessContentTypeFromName(file.getName());
+        logger.debug(guess);
+        
+        BufferedReader in = null;
+        
+        if (guess != null && guess.equals(MimeTypes.GZIP)) {
+            FileInputStream fis = new FileInputStream(file);
+            GZIPInputStream gzis = new GZIPInputStream(fis);
+            in = new BufferedReader(new InputStreamReader(gzis));
+        } else if (guess != null && guess.equals(MimeTypes.ZIP)) {
+            
+        } else {
+            in = new BufferedReader(new FileReader(file));
+        }
+        
+        //JSONParser parser = new JSONParser();
         
         int unmatchedCount = 0;
         //Set<String> commands = new HashSet<String>();
+        
+        
 
         int lineNum = 0;
         long start = System.currentTimeMillis();
@@ -63,7 +79,14 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
                 continue;
             }
             
-            String pre = currentLine.substring(31, 34);
+            int logComponentStartIndex;
+            if (currentLine.charAt(23) == 'Z') {
+                logComponentStartIndex = 27;
+            } else {
+                logComponentStartIndex = 31;
+            }
+         
+            String pre = currentLine.substring(logComponentStartIndex, logComponentStartIndex+3);
 
             try {
                 if (pre.equals("COM")) {
@@ -135,6 +158,7 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
                         accumulator.accumulate(file, GETMORE, namespace, execTime, keysExamined, docsExamined, null);
                         continue;
                     }
+                    
                     if (currentLine.contains("Use of the aggregate command without the")) {
                         continue;
                     }
@@ -144,7 +168,18 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
                         continue;
                     }
                     
-                    System.out.println(currentLine);
+                    m = queryPattern.matcher(currentLine);
+                    if (m.find()) {
+                        int pos = 1;
+                        String namespace = m.group(pos++);
+                        Integer keysExamined = Integer.parseInt(m.group(pos++));
+                        Integer docsExamined = Integer.parseInt(m.group(pos++));
+                        Integer execTime = Integer.parseInt(m.group(pos++));
+                        accumulator.accumulate(file, FIND, namespace, execTime, keysExamined, docsExamined, null);
+                        continue;
+                    }
+                    
+                    logger.warn("Unmatched: " + currentLine);
                     unmatchedCount++;
 
                 } else if (pre.equals("WRI")) {
@@ -185,7 +220,7 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
                         continue;
                     }
                    
-                    System.out.println(currentLine);
+                    logger.warn("Unmatched: " + currentLine);
                     unmatchedCount++;
                 }
                 
@@ -199,7 +234,7 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
         in.close();
         long end = System.currentTimeMillis();
         long dur = (end - start);
-        System.out.println("Elapsed millis: " + dur);
+        logger.debug(String.format("Elapsed millis: %s, lineCount: %s, unmatchedCount: %s", dur, lineNum, unmatchedCount));
         
 //        for (String command : commands) {
 //            System.out.println(command);
