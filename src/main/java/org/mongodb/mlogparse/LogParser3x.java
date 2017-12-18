@@ -20,6 +20,9 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
     
     Pattern insertPattern = Pattern.compile("^.+ [A-Z] COMMAND .* command (\\S++).*command: insert \\{.*\\} .* (\\d+)ms$");
     
+    // Possibly only with 3.0 and/or with exceptions
+    Pattern insertPattern2 = Pattern.compile("^.+ [A-Z] COMMAND .* insert (\\S++) .*(\\d+)ms$");
+    
     Pattern commandPattern = Pattern.compile("^.+ [A-Z] COMMAND .+ command (\\S++).*command: (\\S++) \\{ \\S*: (.*) (\\d+)ms$");
     
     Pattern getmorePattern = Pattern.compile("^.+ [A-Z] COMMAND .+ getmore (\\S++).+query: \\{ \\S*:.+keysExamined:(\\d+) docsExamined:(\\d+) .+ (\\d+)ms$");
@@ -58,7 +61,7 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
         
         //JSONParser parser = new JSONParser();
         
-        int unmatchedCount = 0;
+        unmatchedCount = 0;
         //Set<String> commands = new HashSet<String>();
         
         
@@ -179,7 +182,21 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
                         continue;
                     }
                     
-                    logger.warn("Unmatched: " + currentLine);
+                    // odd case put this near the end
+                    m = insertPattern2.matcher(currentLine);
+                    if (m.find()) {
+                        int pos = 1;
+                        String namespace = m.group(pos++);
+                        //String json = m.group(pos++);
+                        //String planType = m.group(pos++);
+                        String execTimeStr = m.group(pos++);
+                        Integer execTime = Integer.parseInt(execTimeStr);
+
+                        accumulator.accumulate(file, INSERT, namespace, execTime);
+                        continue;
+                    }
+                    
+                    logger.warn("Unmatched line in file " + file.getName() + ": "  + currentLine);
                     unmatchedCount++;
 
                 } else if (pre.equals("WRI")) {
@@ -220,14 +237,14 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
                         continue;
                     }
                    
-                    logger.warn("Unmatched: " + currentLine);
+                    logger.warn("Unmatched line in file " + file.getName() + ": "  + currentLine);
                     unmatchedCount++;
                 }
                 
                 
             } catch (Exception e) {
                 logger.warn(String.format("Error at line %s", lineNum), e);
-                System.out.println(currentLine);
+                //System.out.println(currentLine);
             }
 
         }

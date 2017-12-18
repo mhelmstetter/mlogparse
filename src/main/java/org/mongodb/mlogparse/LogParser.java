@@ -12,5 +12,7 @@ public interface LogParser {
     void report();
 
     Accumulator getAccumulator();
+    
+    int getUnmatchedCount();
 
 }

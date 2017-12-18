@@ -28,14 +28,9 @@ public abstract class AbstractLogParser implements LogParser {
     
     protected Accumulator accumulator;
     
-    
+    protected int unmatchedCount = 0;
     
     public void read()  throws IOException, ParseException {
-//        if (fileName != null) {
-//            file = new File(fileName);
-//            readFile();
-//        }
-        
         for (String fileName : fileNames) {
             File f = new File(fileName);
             read(f);
@@ -48,7 +43,7 @@ public abstract class AbstractLogParser implements LogParser {
     protected Object parseJson(BufferedReader in) throws ParseException, IOException {
         JSONParser parser = new JSONParser();
         String json = readJson(in);
-        System.out.println("json: " + json);
+        //System.out.println("json: " + json);
         return parser.parse(json);
     }
 
@@ -98,6 +93,10 @@ public abstract class AbstractLogParser implements LogParser {
 
     public void setFileNames(String[] fileNames) {
         this.fileNames = fileNames;
+    }
+    
+    public int getUnmatchedCount() {
+        return unmatchedCount;
     }
 
 }
