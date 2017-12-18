@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipInputStream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.json.simple.parser.ParseException;
@@ -54,7 +55,9 @@ public class LogParser3x extends AbstractLogParser implements LogParser {
             GZIPInputStream gzis = new GZIPInputStream(fis);
             in = new BufferedReader(new InputStreamReader(gzis));
         } else if (guess != null && guess.equals(MimeTypes.ZIP)) {
-            
+            FileInputStream fis = new FileInputStream(file);
+            ZipInputStream zis = new ZipInputStream(fis);
+            in = new BufferedReader(new InputStreamReader(zis));
         } else {
             in = new BufferedReader(new FileReader(file));
         }
